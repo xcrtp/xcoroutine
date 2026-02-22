@@ -1,0 +1,9 @@
+/*
+
+!/.gitignore
+!/.clang-format
+!/xc/
+!/tests/
+!/examples/
+!/CMakeLists.txt
+!/cmake/
