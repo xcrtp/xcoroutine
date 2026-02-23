@@ -1,14 +1,19 @@
 #pragma once
+#ifdef _MSVC_VAR
+#include <vcruntime_new.h>
+#endif
 #include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <new>
 #include <queue>
 #include <thread>
 
 #include "./config.hpp"
 #include "./types.hpp"
+
 namespace xc {
 namespace xcoroutine {
 
@@ -23,8 +28,14 @@ class Worker {
         }
     };
     static std::unique_ptr<Worker, WorkerDeleter> make() {
+#if defined(_MSC_VER) && !defined(__clang__)
+        Worker* worker = new (::operator new(
+            sizeof(Worker), std::align_val_t(alignof(Worker)))) Worker();
+        return std::unique_ptr<Worker, WorkerDeleter>(worker);
+#else
         return std::unique_ptr<Worker, WorkerDeleter>(
             new (std::align_val_t(alignof(Worker))) Worker());
+#endif
     }
 
    public:

@@ -1,8 +1,8 @@
-
 #include <gtest/gtest.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <queue>
 #include <thread>
 #include <xc/coroutine/access.hpp>
@@ -18,15 +18,22 @@ TEST(compose, compose) {
     mutex<int> a{1};
     mutex<int> b{1};
     compose{a, b}([](auto& a, auto& b) {
+        EXPECT_EQ(a, 1);
+        EXPECT_EQ(b, 1);
         a = 2;
         b = 2;
     });
     EXPECT_EQ(*a.lock(), 2);
     EXPECT_EQ(*b.lock(), 2);
+    *a.lock() = 11;
+    *b.lock() = 12;
+    std::cout << "a: " << *a.lock() << ", b: " << *b.lock() << std::endl;
     const auto& ca = a;
     const auto& cb = b;
     compose(ca, cb)([](auto& a, auto& b) {
         std::cout << "a: " << a << ", b: " << b << std::endl;
+        EXPECT_EQ(a, 11);
+        EXPECT_EQ(b, 12);
     });
 }
 
@@ -52,4 +59,41 @@ TEST(read_write, queue) {
     });
     producer.join();
     consumer.join();
+}
+struct MyClass {
+    MyClass(int a) : a_(a) {}
+    MyClass(const MyClass&) = delete;
+    MyClass(MyClass&&) = delete;
+    MyClass& operator=(const MyClass&) = delete;
+    MyClass& operator=(MyClass&&) = delete;
+    MyClass& operator=(int o) {
+        a_ = o;
+        return *this;
+    }
+    int a_{};
+};
+
+TEST(tuple, forword) {
+    mutex<MyClass> a{0}, b{1};
+    // EXPECT_EQ(a.lock()->a_, 0);
+    // EXPECT_EQ(b.lock()->a_, 1);
+
+    // int* a, *b;
+    std::cout <<"real " << &a << std::endl;
+    std::cout <<"real " << &b << std::endl;
+    compose{a, b}([](auto& a, auto& b) {
+        std::cout <<"call "<< (void*)&a << std::endl;
+        std::cout <<"call "<< (void*)&b << std::endl;
+        EXPECT_EQ(a.a_, 0);
+        EXPECT_EQ(b.a_, 1);
+        a = 2;
+        b = 2;
+    });
+    // compose c{a, b};
+
+    // auto s = transform(c.refs_, [](auto&& ref) {
+    //     std::cout << " compose_deref<decltype(ref)>::deref(ref) "
+    //               << (void*)&(*ref) << std::endl;
+    //     return std::ref(*ref);
+    // });
 }
