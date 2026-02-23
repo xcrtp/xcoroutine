@@ -1,49 +1,47 @@
 #pragma once
 #include <cassert>
+#include <cstddef>
+#include <iostream>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <xcmixin/xcmixin.hpp>
 
 namespace xc {
 namespace coroutine {
-template <typename T, typename Derived>
-class const_mutex_ref_impl {
-   public:
-    const T& operator*() const {
-        return static_cast<const Derived*>(this)->ref_;
-    }
-    const T* operator->() const {
-        return &(static_cast<const Derived*>(this)->ref_);
-    }
-    template <typename Fn>
-        requires std::is_invocable_v<Fn, const T&>
-    auto apply(Fn&& fn) const {
-        return fn(
-            const_cast<const T&>(static_cast<const Derived*>(this)->ref_));
-    }
-};
+XCMIXIN_DEF_BEGIN(const_mutex_ref_impl)
+const auto& operator*() const { return xcmixin_const_self.ref_; }
+const auto* operator->() const { return &xcmixin_const_self.ref_; }
+template <typename Fn>
+auto apply(Fn&& fn) const {
+    return fn(
+        const_cast<const std::decay_t<decltype(xcmixin_const_self.ref_)>&>(
+            xcmixin_const_self.ref_));
+}
+XCMIXIN_DEF_END()
 
-template <typename T, typename Derived>
-class mutex_ref_impl {
-   public:
-    T& operator*() const { return static_cast<const Derived*>(this)->ref_; }
-    T* operator->() const { return &(static_cast<const Derived*>(this)->ref_); }
-    template <typename Fn>
-        requires std::is_invocable_v<Fn, T&>
-    auto apply(Fn&& fn) const {
-        return fn(static_cast<const Derived*>(this)->ref_);
-    }
-};
+XCMIXIN_DEF_BEGIN(mutex_ref_impl)
+auto& operator*() const { return xcmixin_const_self.ref_; }
+auto* operator->() const { return &xcmixin_const_self.ref_; }
+template <typename Fn>
+auto apply(Fn&& fn) const {
+    return fn(xcmixin_const_self.ref_);
+}
+XCMIXIN_DEF_END()
+
 template <typename T, typename mutex_ = std::mutex>
-class const_mutex_ref
-    : public const_mutex_ref_impl<T, const_mutex_ref<T, mutex_>> {
-    friend class const_mutex_ref_impl<T, const_mutex_ref<T, mutex_>>;
-    using Mutex = mutex_;
-
+class const_mutex_ref : public xcmixin::impl_mixin<const_mutex_ref<T, mutex_>,
+                                                   const_mutex_ref_impl> {
    public:
-    const_mutex_ref(const T& ref, Mutex& mutex) : ref_(ref), lock_(mutex) {}
+    using mutex_type = mutex_;
+    const_mutex_ref(const T& ref, mutex_type& mutex)
+        : ref_(ref),
+          lock_(std::make_unique<std::lock_guard<mutex_type>>(mutex)) {}
+    const_mutex_ref(T& ref, mutex_type& mutex, std::adopt_lock_t)
+        : ref_(ref), lock_(mutex, std::adopt_lock_t{}) {}
 
    public:
     ~const_mutex_ref() = default;
@@ -54,18 +52,26 @@ class const_mutex_ref
 
    protected:
     const T& ref_;
-    std::lock_guard<Mutex> lock_;
+    std::unique_ptr<std::lock_guard<mutex_type>> lock_;
+    xcmixin_init_template(const_mutex_ref);
+    xcmixin_friend(const_mutex_ref_impl);
 };
+
 template <typename T, typename mutex_ = std::mutex>
-class mutex_ref : public mutex_ref_impl<T, mutex_ref<T, mutex_>> {
-    friend class mutex_ref_impl<T, mutex_ref<T, mutex_>>;
-    using Mutex = mutex_;
+class mutex_ref
+    : public xcmixin::impl_mixin<mutex_ref<T, mutex_>, mutex_ref_impl> {
+   public:
+    using mutex_type = mutex_;
+    mutex_ref(T& ref, mutex_type& mutex)
+        : ref_(ref),
+          lock_(std::make_unique<std::lock_guard<mutex_type>>(mutex)) {
+        std::cout << "mutex_ref construct " << (void*)&ref << std::endl;
+    }
+    mutex_ref(T& ref, mutex_type& mutex, std::adopt_lock_t)
+        : ref_(ref), lock_(mutex, std::adopt_lock_t{}) {}
 
    public:
-    mutex_ref(T& ref, Mutex& mutex) : ref_(ref), lock_(mutex) {}
-
-   public:
-    ~mutex_ref() = default;
+    ~mutex_ref() { std::cout << "mutex_ref destory " << (void*)&ref_ << std::endl; };
     mutex_ref(mutex_ref&&) = default;
     mutex_ref(const mutex_ref&) = delete;
     mutex_ref& operator=(mutex_ref&&) = default;
@@ -74,54 +80,49 @@ class mutex_ref : public mutex_ref_impl<T, mutex_ref<T, mutex_>> {
    public:
    protected:
     T& ref_;
-    std::lock_guard<Mutex> lock_;
+    std::unique_ptr<std::lock_guard<mutex_type>> lock_;
+    xcmixin_init_template(mutex_ref);
+    xcmixin_friend(mutex_ref_impl);
 };
-template <typename T>
-class mutex_ref<T, std::shared_mutex>
-    : public mutex_ref_impl<T, mutex_ref<T, std::shared_mutex>> {
-    friend class mutex_ref_impl<T, mutex_ref<T, std::shared_mutex>>;
-    using Mutex = std::shared_mutex;
 
-   public:
-    mutex_ref(T& ref, Mutex& mutex) : ref_(ref), lock_(mutex) { lock_.lock(); }
-    ~mutex_ref() { lock_.unlock(); }
-
-   private:
-    T& ref_;
-    std::shared_mutex& lock_;
-};
 template <typename T>
 class const_mutex_ref<T, std::shared_mutex>
-    : public const_mutex_ref_impl<T, const_mutex_ref<T, std::shared_mutex>> {
-    friend class const_mutex_ref_impl<T, const_mutex_ref<T, std::shared_mutex>>;
-    using Mutex = std::shared_mutex;
-
+    : public xcmixin::impl_mixin<const_mutex_ref<T, std::shared_mutex>,
+                                 const_mutex_ref_impl> {
    public:
-    const_mutex_ref(const T& ref, Mutex& mutex) : ref_(ref), lock_(mutex) {
-        lock_.lock_shared();
+    using mutex_type = std::shared_mutex;
+    const_mutex_ref(const T& ref, mutex_type& mutex)
+        : ref_(ref), lock_(&mutex) {
+        lock_->lock_shared();
     }
-    ~const_mutex_ref() { lock_.unlock_shared(); };
+    ~const_mutex_ref() {
+        if (lock_) lock_->unlock_shared();
+    };
 
    private:
     const T& ref_;
-    std::shared_mutex& lock_;
+    mutex_type* lock_{nullptr};
+    xcmixin_init_template(const_mutex_ref);
+    xcmixin_friend(const_mutex_ref_impl);
 };
 
-template <typename T, typename Derive, typename Mutex = std::mutex>
+template <typename T, typename Derive>
 class lock_impl {
    public:
     template <typename... Args>
         requires(std::is_constructible_v<T, Args...>)
     lock_impl(Args&&... args) : data_(args...) {}
     auto lock() const {
-        return const_mutex_ref<T, Mutex>{
-            static_cast<const Derive*>(this)->data_,
-            static_cast<const Derive*>(this)->mutex_};
+        return const_mutex_ref<T, typename Derive::mutex_type>{
+            std::ref(data_),
+            std::ref(static_cast<const Derive*>(this)->mutex_)};
     }
     auto lock() {
-        return mutex_ref<T, Mutex>{static_cast<Derive*>(this)->data_,
-                                   static_cast<Derive*>(this)->mutex_};
+        return mutex_ref<T, typename Derive::mutex_type>{
+            std::ref(data_), std::ref(static_cast<Derive*>(this)->mutex_)};
     }
+
+   protected:
     T data_;
 };
 template <typename T>
@@ -129,55 +130,45 @@ class mutex : public lock_impl<T, mutex<T>> {
     friend class lock_impl<T, mutex<T>>;
 
    public:
+    using mutex_type = std::mutex;
     using lock_impl<T, mutex<T>>::lock_impl;
 
    private:
-    mutable std::mutex mutex_{};
+    mutable mutex_type mutex_{};
 };
 template <typename T>
 class shared_mutex;
 template <typename T>
-using shared_mutex_impl = lock_impl<T, shared_mutex<T>, std::shared_mutex>;
+using shared_mutex_impl = lock_impl<T, shared_mutex<T>>;
 template <typename T>
 class shared_mutex : public shared_mutex_impl<T> {
     friend shared_mutex_impl<T>;
 
    public:
+    using mutex_type = std::shared_mutex;
     using shared_mutex_impl<T>::shared_mutex_impl;
 
-    auto read() const { return lock(); }
-    auto write() { return lock(); }
+    auto read() const { return shared_mutex_impl<T>::lock(); }
+    auto write() { return shared_mutex_impl<T>::lock(); }
 
    private:
     mutable std::shared_mutex mutex_{};
 };
 
-template <typename Fn, typename... Fns, typename... T>
-auto transform(std::tuple<T...>& refs, Fn&& fn, Fns&&... fns) {
-    auto res = std::apply(
-        [&](auto&&... args) {
-            return std::make_tuple<std::invoke_result_t<Fn, decltype(args)>...>(
-                std::forward<Fn>(fn)(std::forward<decltype(args)>(args))...);
-        },
-        refs);
-    if constexpr (sizeof...(Fns) == 0) {
-        return res;
-    } else {
-        return transform(res, std::forward<Fns>(fns)...);
-    }
-}
-
 template <typename T>
 struct compose_deref {
-    static auto deref(T&& v) { return std::ref(*v); }
+    static decltype(auto) deref(T&& v) { return *v; }
 };
 template <typename T>
 struct compose_construct_transform {
-    static decltype(auto) transform(T&& v) { return std::forward<T>(v); }
+    static const T& transform(const T& v) { return v; }
 };
 template <typename T>
 struct compose_construct_transform<mutex<T>> {
-    static decltype(auto) transform(mutex<T>& v) { return v.lock(); }
+    static decltype(auto) transform(mutex<T>& v) {
+        std::cout << " mutex<T>& transform()" << std::endl;
+        return v.lock();
+    }
 };
 template <typename T>
 struct compose_construct_transform<mutex<T>&>
@@ -194,22 +185,33 @@ template <typename... T>
 class compose {
     using inner_type = std::tuple<
         const std::decay_t<decltype(compose_construct_transform<T>::transform(
-            std::declval<T>()))>&...>;
+            std::declval<T>()))>...>;
 
    public:
     compose(T&&... refs)
         : refs_(std::forward_as_tuple(compose_construct_transform<T>::transform(
-              std::forward<T>(refs))...)) {}
-    ~compose() = default;
-
-    template <typename Fn>
-    void operator()(Fn&& fn) {
-        std::apply(fn, transform(refs_, [](auto& ref) -> decltype(auto) {
-                       return compose_deref<decltype(ref)>::deref(ref);
-                   }));
+              std::forward<T>(refs))...)) {
+        [&]<size_t... I>(std::index_sequence<I...>) -> decltype(auto) {
+            ((std::cout << "init " << &*std::get<I>(refs_) << std::endl), ...);
+        }(std::make_index_sequence<sizeof...(T)>());
+    }
+    ~compose() {
+        [&]<size_t... I>(std::index_sequence<I...>) -> decltype(auto) {
+            ((std::cout << "destroy " << &*std::get<I>(refs_) << std::endl),
+             ...);
+        }(std::make_index_sequence<sizeof...(T)>());
     }
 
-   private:
+    template <typename Fn>
+    decltype(auto) operator()(Fn&& fn) {
+        return [&]<size_t... I>(std::index_sequence<I...>) -> decltype(auto) {
+            ((std::cout << "pre call " << &*std::get<I>(refs_) << std::endl),
+             ...);
+            fn(*std::get<I>(refs_)...);
+        }(std::make_index_sequence<sizeof...(T)>());
+    }
+
+    //    private:
     inner_type refs_;
 };
 template <typename... T>

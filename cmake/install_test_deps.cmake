@@ -1,7 +1,7 @@
 find_package(GTest CONFIG)
 
 if(NOT GTest_FOUND)
-    if(MSVC)
+    if(WIN32)
         set(gtest_force_shared_crt ON CACHE BOOL "Use shared (DLL) run-time lib" FORCE)
     endif()
 
