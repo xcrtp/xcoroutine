@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10..4.1)
-
-project(xcoroutine LANGUAGES CXX VERSION 0.1.0)
+include(cmake/get_version.cmake)
+xc_get_project_version(PROJECT_VERSION)
+project(xcoroutine LANGUAGES CXX VERSION ${PROJECT_VERSION})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
