@@ -1,7 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
-#include <xc/coroutine/worker.hpp>
+#include <xcoroutine/worker.hpp>
 
 using namespace std::chrono_literals;
 using namespace xc::xcoroutine;
