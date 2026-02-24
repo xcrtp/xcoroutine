@@ -1,0 +1,4 @@
+@PACKAGE_INIT@
+
+# 包含导出目标
+include("${CMAKE_CURRENT_LIST_DIR}/@CMAKE_PROJECT_NAME@Targets.cmake")

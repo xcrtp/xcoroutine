@@ -1,0 +1,26 @@
+include(GNUInstallDirs)
+string(TOUPPER ${CMAKE_PROJECT_NAME} UPPER_PROJECT_NAME)
+set(${UPPER_PROJECT_NAME}_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}")
+
+# Install export set
+install(
+    EXPORT ${CMAKE_PROJECT_NAME}
+    NAMESPACE ${CMAKE_PROJECT_NAME}::
+    FILE "${CMAKE_PROJECT_NAME}Targets.cmake"
+    DESTINATION "${${UPPER_PROJECT_NAME}_CMAKE_INSTALL_DIR}"
+)
+
+# Generate and install config file for find_package()
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    "cmake/${CONFIG_FILE_NAME}.in"
+    ${CONFIG_FILE_NAME}
+    INSTALL_DESTINATION "${${UPPER_PROJECT_NAME}_CMAKE_INSTALL_DIR}"
+    PATH_VARS CMAKE_PROJECT_NAME
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_FILE_NAME}"
+    DESTINATION "${${UPPER_PROJECT_NAME}_CMAKE_INSTALL_DIR}"
+)
