@@ -5,7 +5,7 @@
 #include <iostream>
 #include <queue>
 #include <thread>
-#include <xc/coroutine/access.hpp>
+#include <xcoroutine/access.hpp>
 
 using namespace xc::coroutine;
 TEST(compose, shared) {

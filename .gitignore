@@ -3,7 +3,7 @@
 !/.gitignore
 !/.clang-format
 !/xcoroutine/
-!/tests/
+!/test/
 !/examples/
 !/CMakeLists.txt
 !/cmake/
