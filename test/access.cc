@@ -5,7 +5,7 @@
 #include <iostream>
 #include <queue>
 #include <thread>
-#include <xc/coroutine/access.hpp>
+#include <xcoroutine/access.hpp>
 
 using namespace xc::coroutine;
 TEST(compose, shared) {
@@ -79,11 +79,11 @@ TEST(tuple, forword) {
     // EXPECT_EQ(b.lock()->a_, 1);
 
     // int* a, *b;
-    std::cout <<"real " << &a << std::endl;
-    std::cout <<"real " << &b << std::endl;
+    std::cout << "real " << &a << std::endl;
+    std::cout << "real " << &b << std::endl;
     compose{a, b}([](auto& a, auto& b) {
-        std::cout <<"call "<< (void*)&a << std::endl;
-        std::cout <<"call "<< (void*)&b << std::endl;
+        std::cout << "call " << (void*)&a << std::endl;
+        std::cout << "call " << (void*)&b << std::endl;
         EXPECT_EQ(a.a_, 0);
         EXPECT_EQ(b.a_, 1);
         a = 2;
