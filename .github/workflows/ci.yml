@@ -48,7 +48,7 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
-        run: brew install ninja
+        run: brew install ninja clang-format
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -56,7 +56,7 @@ jobs:
 
       - name: Install dependencies (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install ninja clang-format -y
+        run: choco install ninja llvm -y
 
       - name: Configure CMake
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DXCOROUTINE_BUILD_EXAMPLES=ON -DXCOROUTINE_BUILD_TESTS=ON

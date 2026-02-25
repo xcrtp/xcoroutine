@@ -37,7 +37,7 @@ jobs:
 
       - name: Setup CMake and Ninja (Windows)
         if: runner.os == 'Windows'
-        run: choco install ninja clang-format -y
+        run: choco install ninja llvm -y
 
       - name: Configure CMake
         run: |
