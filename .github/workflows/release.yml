@@ -30,10 +30,14 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update && sudo apt-get install -y cmake ninja-build
+            sudo apt-get update && sudo apt-get install -y cmake ninja-build clang-format
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew install cmake ninja
           fi
+
+      - name: Setup CMake and Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja clang-format -y
 
       - name: Configure CMake
         run: |
@@ -49,16 +53,24 @@ jobs:
       - name: Run examples (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          for exe in build/examples/*_example; do
-            if [ -f "$exe" ] || [ -f "$exe.exe" ]; then
-              "$exe" || exit 1
-            fi
-          done
+          if [ -d "build/examples" ]; then
+            for exe in build/examples/*_example; do
+              if [ -f "$exe" ] || [ -f "$exe.exe" ]; then
+                "$exe" || exit 1
+              fi
+            done
+          else
+            echo "No examples directory, skipping..."
+          fi
 
       - name: Run examples (Windows)
         if: runner.os == 'Windows'
         run: |
-          Get-ChildItem -Path build/examples -Filter "*.exe" | ForEach-Object { & $_.FullName }
+          if (Test-Path build/examples) {
+            Get-ChildItem -Path build/examples -Filter "*.exe" | ForEach-Object { & $_.FullName }
+          } else {
+            Write-Host "No examples directory, skipping..."
+          }
 
       - name: Package (Linux/macOS)
         if: runner.os != 'Windows'

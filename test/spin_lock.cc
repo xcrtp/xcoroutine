@@ -4,7 +4,6 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-
 #include <xcoroutine/structure/spin_lock.hpp>
 
 using namespace xc::oroutine;
