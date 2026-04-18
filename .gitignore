@@ -3,10 +3,11 @@
 !/.gitignore
 !/.clang-format
 !/xcoroutine/
-!/tests/
+!/test/
 !/examples/
 !/CMakeLists.txt
 !/cmake/
 !/README.md
 !/README-zh.md
 !/LICENSE
+!/.github/

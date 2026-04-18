@@ -16,30 +16,36 @@
 
 namespace xc {
 namespace xcoroutine {
-
-class Worker {
+template <typename Policy>
+class PolicyThreadWorker {
    protected:
-    Worker() = default;
+    PolicyThreadWorker() = default;
 
    public:
+    using task_t = typename Policy::task_t;
     struct WorkerDeleter {
-        void operator()(Worker* worker) const {
-            ::operator delete(worker, std::align_val_t(alignof(Worker)));
+        void operator()(PolicyThreadWorker* worker) const {
+            ::operator delete(worker,
+                              std::align_val_t(alignof(PolicyThreadWorker)));
         }
     };
-    static std::unique_ptr<Worker, WorkerDeleter> make() {
+    static std::unique_ptr<PolicyThreadWorker, WorkerDeleter> make() {
 #if defined(_MSC_VER) && !defined(__clang__)
-        Worker* worker = new (::operator new(
-            sizeof(Worker), std::align_val_t(alignof(Worker)))) Worker();
-        return std::unique_ptr<Worker, WorkerDeleter>(worker);
+        PolicyThreadWorker<Policy>* worker = new (::operator new(
+            sizeof(PolicyThreadWorker<Policy>),
+            std::align_val_t(alignof(PolicyThreadWorker<Policy>))))
+            PolicyThreadWorker<Policy>();
+        return std::unique_ptr<PolicyThreadWorker<Policy>, WorkerDeleter>(
+            worker);
 #else
-        return std::unique_ptr<Worker, WorkerDeleter>(
-            new (std::align_val_t(alignof(Worker))) Worker());
+        return std::unique_ptr<PolicyThreadWorker, WorkerDeleter>(
+            new (std::align_val_t(alignof(PolicyThreadWorker)))
+                PolicyThreadWorker());
 #endif
     }
 
    public:
-    bool try_enqueue_task(const std::function<void(void)>& task) {
+    bool try_enqueue_task(const task_t& task) {
         assert(task && "task is invalid");
         if (queue_flag_.test_and_set(std::memory_order_acq_rel)) return false;
         task_queue_.push(task);
@@ -79,7 +85,7 @@ class Worker {
         worker_id_ = worker_id;
         assert(!thread_.joinable());
         if (run_flag_.test_and_set(std::memory_order_acq_rel)) assert(false);
-        thread_ = std::jthread{&Worker::work, this};
+        thread_ = std::jthread{&PolicyThreadWorker::work, this};
     }
     inline uint32_t worker_id() const noexcept { return worker_id_; }
     inline std::thread::id thread_id() const noexcept { return thread_id_; }
@@ -140,7 +146,7 @@ class Worker {
                     wait_flag_.clear();
                 }
             }
-            std::function<void(void)> task;
+            task_t task;
             if (queue_flag_.test_and_set(std::memory_order_acq_rel)) {
                 continue;
             }
@@ -156,7 +162,7 @@ class Worker {
                 _WORKER_DEBUG("worker {} doing tasks , reamin {}", worker_id_,
                               task_count_.load() - 1);
                 current_task_start_time_ = std::chrono::steady_clock::now();
-                task();
+                Policy::run_task(task);
                 --task_count_;
             }
         }
@@ -178,6 +184,11 @@ class Worker {
     alignas(64) std::atomic_flag queue_flag_{};
     std::jthread thread_{};
 };
-using worker_ptr = std::unique_ptr<Worker, Worker::WorkerDeleter>;
+using functional_worker_ptr =
+    std::unique_ptr<FunctionalThreadWorker,
+                    FunctionalThreadWorker::WorkerDeleter>;
+using point_worker_ptr =
+    std::unique_ptr<PointerThreadWorker, PointerThreadWorker::WorkerDeleter>;
+
 }  // namespace xcoroutine
 }  // namespace xc

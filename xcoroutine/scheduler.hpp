@@ -8,6 +8,9 @@ namespace xcoroutine {
 class SystemScheduler {
    public:
     using worker_paload_t = std::tuple<uint32_t, uint32_t, uint32_t>;
+    using Worker = FunctionalThreadWorker;
+    using task_t = typename Worker::task_t;
+    using worker_ptr = functional_worker_ptr;
     SystemScheduler() = default;
     void start_workers(
         uint32_t num_workers = std::thread::hardware_concurrency()) {
@@ -162,7 +165,6 @@ class SystemScheduler {
 
    private:
     static constexpr size_t StealUntilMaxUs = 500;
-
     std::vector<worker_ptr> workers_{};
     std::mutex steal_mutex_{};
     std::condition_variable steal_cv_{};

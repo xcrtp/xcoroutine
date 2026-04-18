@@ -71,7 +71,9 @@ class mutex_ref
         : ref_(ref), lock_(mutex, std::adopt_lock_t{}) {}
 
    public:
-    ~mutex_ref() { std::cout << "mutex_ref destory " << (void*)&ref_ << std::endl; };
+    ~mutex_ref() {
+        std::cout << "mutex_ref destory " << (void*)&ref_ << std::endl;
+    };
     mutex_ref(mutex_ref&&) = default;
     mutex_ref(const mutex_ref&) = delete;
     mutex_ref& operator=(mutex_ref&&) = default;
