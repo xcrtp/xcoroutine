@@ -15,23 +15,21 @@ class spin_lock {
 
     bool try_lock() {
         for (size_t i = 0; i < Policy::max_spin_count; ++i) {
-            if (!flag_.test_and_set(std::memory_order_acquire)) {
+            if (!flag_.test_and_set(std::memory_order_acq_rel)) {
                 return true;
             }
         }
         return false;
     }
     bool owns_lock() const { return flag_.test(std::memory_order_acquire); }
-    void unlock() { flag_.clear(std::memory_order_release); }
+    void unlock() {
+        flag_.clear(std::memory_order_release);
+        notify_one();
+    }
     void notify_one() { flag_.notify_one(); }
     void notify_all() { flag_.notify_all(); }
     void lock() {
-        while (!flag_.test_and_set(std::memory_order_acq_rel)) {
-            flag_.wait(false, std::memory_order_acquire);
-        }
-    }
-    void wait_until_unlock() {
-        while (owns_lock()) {
+        while (flag_.test_and_set(std::memory_order_acq_rel)) {
             flag_.wait(true, std::memory_order_acquire);
         }
     }

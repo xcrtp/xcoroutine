@@ -18,12 +18,11 @@ namespace xc {
 namespace xcoroutine {
 template <typename Policy>
 class PolicyThreadWorker {
-    using task_t = typename Policy::task_t;
-
    protected:
     PolicyThreadWorker() = default;
 
    public:
+    using task_t = typename Policy::task_t;
     struct WorkerDeleter {
         void operator()(PolicyThreadWorker* worker) const {
             ::operator delete(worker,

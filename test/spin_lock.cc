@@ -88,25 +88,25 @@ TEST(spin_lock, owns_lock) {
     EXPECT_FALSE(lock.owns_lock());
 }
 
-TEST(spin_lock, wait_until_unlock) {
-    spin_lock<> lock;
+// TEST(spin_lock, wait_until_unlock) {
+//     spin_lock<> lock;
 
-    lock.lock();
-    EXPECT_TRUE(lock.owns_lock());
+//     lock.lock();
+//     EXPECT_TRUE(lock.owns_lock());
 
-    // Start a thread to unlock after a delay
-    std::thread unlock_thread([&lock]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        lock.unlock();
-        lock.notify_all();  // Wake up any waiters
-    });
+//     // Start a thread to unlock after a delay
+//     std::thread unlock_thread([&lock]() {
+//         std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//         lock.unlock();
+//         lock.notify_all();  // Wake up any waiters
+//     });
 
-    // wait_until_unlock should block until unlock is called
-    lock.wait_until_unlock();
-    EXPECT_FALSE(lock.owns_lock());
+//     // wait_until_unlock should block until unlock is called
+//     lock.wait_until_unlock();
+//     EXPECT_FALSE(lock.owns_lock());
 
-    unlock_thread.join();
-}
+//     unlock_thread.join();
+// }
 
 TEST(spin_lock, notify_one) {
     spin_lock<> lock;
